@@ -47,7 +47,6 @@
       letter-spacing: 0.05em;
     }
 
-    /* 初期ドラッグ＆ドロップ画面 */
     #drop-screen {
       flex: 1;
       display: flex;
@@ -87,7 +86,6 @@
       color: var(--text-sub);
     }
 
-    /* 編集画面レイアウト */
     #editor-screen {
       display: none;
       flex: 1;
@@ -131,7 +129,6 @@
       border-radius: 999px;
     }
 
-    /* 右側コントロールパネル */
     .sidebar {
       width: 400px;
       background-color: var(--panel-bg);
@@ -223,7 +220,6 @@
       font-family: monospace;
     }
 
-    /* 直感的なはみ出し角度ダイヤル */
     .angle-dial-container {
       display: flex;
       align-items: center;
@@ -304,7 +300,6 @@
     <button id="reset-btn" class="btn btn-secondary hidden" style="padding: 6px 12px; font-size: 0.8rem;">別の画像を読み込む</button>
   </header>
 
-  <!-- 1. ドラッグ＆ドロップ画面 -->
   <div id="drop-screen">
     <div class="drop-zone" id="drop-zone">
       <p>PNG画像をここにドラッグ＆ドロップ</p>
@@ -313,7 +308,6 @@
     </div>
   </div>
 
-  <!-- 2. 編集画面 -->
   <div id="editor-screen">
     <div class="canvas-area">
       <canvas id="preview-canvas" width="800" height="800"></canvas>
@@ -321,7 +315,6 @@
     </div>
 
     <div class="sidebar">
-      <!-- フレーム形状 -->
       <div class="control-group">
         <h2>1. フレーム形状・比率</h2>
         <div class="row">
@@ -340,7 +333,7 @@
           <label>角の数</label>
           <div class="control-inputs">
             <input type="range" id="polygon-sides" min="3" max="12" value="6" />
-            <input type="number" id="polygon-sides-num" class="num-input-1to10" min="3" max="12" value="6" />
+            <input type="number" id="polygon-sides-num" class="num-input-1to10" min="1" max="10" value="6" />
           </div>
         </div>
 
@@ -368,7 +361,6 @@
         </div>
       </div>
 
-      <!-- はみ出し表現 -->
       <div class="control-group">
         <h2>2. はみ出し演出（飛び出し方向）</h2>
         <div class="row">
@@ -392,7 +384,6 @@
         </div>
       </div>
 
-      <!-- カラー・背景プリセット -->
       <div class="control-group">
         <h2>3. フレーム枠・背景デザイン</h2>
         <div class="row">
@@ -434,7 +425,6 @@
         </div>
       </div>
 
-      <!-- キャラクター調整 -->
       <div class="control-group">
         <h2>4. キャラクター位置・サイズ</h2>
         <div class="row">
@@ -453,7 +443,6 @@
         </div>
       </div>
 
-      <!-- 書き出し -->
       <div class="control-group">
         <h2>5. 書き出し（透過PNG）</h2>
         <div class="row">
@@ -520,11 +509,12 @@
     };
 
     // 双方向バインド関数（スライダー ⇔ 1〜10数値）
-    function bindSync(rangeEl, numEl, minVal, maxVal, isFloat = false) {
+    function bindSync(rangeEl, numEl, minVal, maxVal, isFloat = false, callback = null) {
       rangeEl.addEventListener('input', () => {
         const v = parseFloat(rangeEl.value);
         const mapped = Math.round(1 + ((v - minVal) / (maxVal - minVal)) * 9);
         numEl.value = Math.max(1, Math.min(10, mapped));
+        if (callback) callback(v);
         render();
       });
 
@@ -534,21 +524,26 @@
         n = Math.max(1, Math.min(10, n));
         const v = minVal + ((n - 1) / 9) * (maxVal - minVal);
         rangeEl.value = isFloat ? v.toFixed(2) : Math.round(v);
+        if (callback) callback(parseFloat(rangeEl.value));
         render();
       });
     }
 
-    // 各項目のバインド設定
+    // 各項目のバインド設定と変数への反映
     bindSync(els.aspectX, els.aspectXNum, 0.5, 1.5, true);
     bindSync(els.aspectY, els.aspectYNum, 0.5, 1.5, true);
     bindSync(els.polygonSides, els.polygonSidesNum, 3, 12, false);
     bindSync(els.cornerRadius, els.cornerRadiusNum, 0, 200, false);
     bindSync(els.popoutSpread, els.popoutSpreadNum, 30, 180, false);
     bindSync(els.borderWidth, els.borderWidthNum, 0, 40, false);
-    bindSync(els.imgScale, els.imgScaleNum, 0.2, 2.5, true);
-    bindSync(els.imgRotate, els.imgRotateNum, -180, 180, false);
+    
+    bindSync(els.imgScale, els.imgScaleNum, 0.2, 2.5, true, (val) => {
+      imgState.scale = val;
+    });
+    bindSync(els.imgRotate, els.imgRotateNum, -180, 180, false, (val) => {
+      imgState.rotate = val;
+    });
 
-    // ファイル読み込み処理
     function handleFile(file) {
       if (!file || !file.type.startsWith('image/')) return;
       const reader = new FileReader();
@@ -558,12 +553,13 @@
           userImg = img;
           const baseScale = 520 / Math.max(img.width, img.height);
           imgState = { x: 400, y: 420, scale: baseScale, rotate: 0 };
+          
           els.imgScale.value = baseScale.toFixed(2);
-          // スケールに対応する1〜10数値を計算してセット
           const scaleNum = Math.round(1 + ((baseScale - 0.2) / (2.5 - 0.2)) * 9);
           els.imgScaleNum.value = Math.max(1, Math.min(10, scaleNum));
+          
           els.imgRotate.value = 0;
-          els.imgRotateNum.value = 6;
+          els.imgRotateNum.value = 6; // 0度は1〜10スケールの中央付近
 
           dropScreen.classList.add('hidden');
           editorScreen.style.display = 'flex';
