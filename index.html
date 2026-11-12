@@ -428,6 +428,20 @@
       <div class="control-group">
         <h2>4. キャラクター位置・サイズ</h2>
         <div class="row">
+          <label>横位置</label>
+          <div class="control-inputs">
+            <input type="range" id="img-pos-x" min="0" max="800" value="400" />
+            <input type="number" id="img-pos-x-num" class="num-input-1to10" min="1" max="10" value="5" />
+          </div>
+        </div>
+        <div class="row">
+          <label>縦位置</label>
+          <div class="control-inputs">
+            <input type="range" id="img-pos-y" min="0" max="800" value="420" />
+            <input type="number" id="img-pos-y-num" class="num-input-1to10" min="1" max="10" value="5" />
+          </div>
+        </div>
+        <div class="row">
           <label>拡大・縮小</label>
           <div class="control-inputs">
             <input type="range" id="img-scale" min="0.2" max="2.5" step="0.02" value="1" />
@@ -438,7 +452,7 @@
           <label>回転</label>
           <div class="control-inputs">
             <input type="range" id="img-rotate" min="-180" max="180" value="0" />
-            <input type="number" id="img-rotate-num" class="num-input-1to10" min="1" max="10" value="6" />
+            <input type="number" id="img-rotate-num" class="num-input-1to10" min="1" max="10" value="5" />
           </div>
         </div>
       </div>
@@ -500,6 +514,10 @@
       bgColor2Row: document.getElementById('bg-color2-row'),
       bgColor2: document.getElementById('bg-color2'),
       bgHex2: document.getElementById('bg-hex2'),
+      imgPosX: document.getElementById('img-pos-x'),
+      imgPosXNum: document.getElementById('img-pos-x-num'),
+      imgPosY: document.getElementById('img-pos-y'),
+      imgPosYNum: document.getElementById('img-pos-y-num'),
       imgScale: document.getElementById('img-scale'),
       imgScaleNum: document.getElementById('img-scale-num'),
       imgRotate: document.getElementById('img-rotate'),
@@ -508,7 +526,6 @@
       exportBtn: document.getElementById('export-btn')
     };
 
-    // 双方向バインド関数（スライダー ⇔ 1〜10数値）
     function bindSync(rangeEl, numEl, minVal, maxVal, isFloat = false, callback = null) {
       rangeEl.addEventListener('input', () => {
         const v = parseFloat(rangeEl.value);
@@ -529,7 +546,6 @@
       });
     }
 
-    // 各項目のバインド設定と変数への反映
     bindSync(els.aspectX, els.aspectXNum, 0.5, 1.5, true);
     bindSync(els.aspectY, els.aspectYNum, 0.5, 1.5, true);
     bindSync(els.polygonSides, els.polygonSidesNum, 3, 12, false);
@@ -537,6 +553,12 @@
     bindSync(els.popoutSpread, els.popoutSpreadNum, 30, 180, false);
     bindSync(els.borderWidth, els.borderWidthNum, 0, 40, false);
     
+    bindSync(els.imgPosX, els.imgPosXNum, 0, 800, false, (val) => {
+      imgState.x = val;
+    });
+    bindSync(els.imgPosY, els.imgPosYNum, 0, 800, false, (val) => {
+      imgState.y = val;
+    });
     bindSync(els.imgScale, els.imgScaleNum, 0.2, 2.5, true, (val) => {
       imgState.scale = val;
     });
@@ -554,12 +576,15 @@
           const baseScale = 520 / Math.max(img.width, img.height);
           imgState = { x: 400, y: 420, scale: baseScale, rotate: 0 };
           
+          els.imgPosX.value = 400; els.imgPosXNum.value = 5;
+          els.imgPosY.value = 420; els.imgPosYNum.value = 5;
+
           els.imgScale.value = baseScale.toFixed(2);
           const scaleNum = Math.round(1 + ((baseScale - 0.2) / (2.5 - 0.2)) * 9);
           els.imgScaleNum.value = Math.max(1, Math.min(10, scaleNum));
           
           els.imgRotate.value = 0;
-          els.imgRotateNum.value = 6; // 0度は1〜10スケールの中央付近
+          els.imgRotateNum.value = 5;
 
           dropScreen.classList.add('hidden');
           editorScreen.style.display = 'flex';
@@ -672,6 +697,16 @@
       const scaleRatio = canvas.width / rect.width;
       imgState.x = (e.clientX - rect.left) * scaleRatio - dragStart.x;
       imgState.y = (e.clientY - rect.top) * scaleRatio - dragStart.y;
+      
+      // スライダー＆数値ボックスも同期更新
+      els.imgPosX.value = Math.max(0, Math.min(800, imgState.x));
+      const xNum = Math.round(1 + ((imgState.x - 0) / (800 - 0)) * 9);
+      els.imgPosXNum.value = Math.max(1, Math.min(10, xNum));
+
+      els.imgPosY.value = Math.max(0, Math.min(800, imgState.y));
+      const yNum = Math.round(1 + ((imgState.y - 0) / (800 - 0)) * 9);
+      els.imgPosYNum.value = Math.max(1, Math.min(10, yNum));
+
       render();
     });
 
@@ -733,7 +768,7 @@
       }
     }
 
-    function drawScene(targetCtx, size) {
+    function drawScene(targetCtx, size, isExport = false) {
       const scaleFactor = size / 800;
       targetCtx.save();
       targetCtx.clearRect(0, 0, size, size);
@@ -799,6 +834,20 @@
 
         drawCharacter(targetCtx);
         targetCtx.restore();
+
+        // プレビュー画面でのみ「はみ出し方向」のガイド点線を描画
+        if (!isExport) {
+          targetCtx.save();
+          targetCtx.beginPath();
+          targetCtx.moveTo(cx, cy);
+          targetCtx.arc(cx, cy, 380, popoutAngle - spreadRad / 2, popoutAngle + spreadRad / 2);
+          targetCtx.closePath();
+          targetCtx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+          targetCtx.lineWidth = 3;
+          targetCtx.setLineDash([8, 6]);
+          targetCtx.stroke();
+          targetCtx.restore();
+        }
       }
 
       targetCtx.restore();
@@ -814,7 +863,7 @@
     }
 
     function render() {
-      drawScene(ctx, 800);
+      drawScene(ctx, 800, false);
     }
 
     els.exportBtn.addEventListener('click', () => {
@@ -825,7 +874,7 @@
       exportCanvas.height = outSize;
       const exportCtx = exportCanvas.getContext('2d');
 
-      drawScene(exportCtx, outSize);
+      drawScene(exportCtx, outSize, true);
 
       const link = document.createElement('a');
       link.download = `icon_${outSize}px.png`;
