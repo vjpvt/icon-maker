@@ -1,1 +1,794 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>動画用アイコンメーカー</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-bg: #1e293b;
+      --border-color: #334155;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
 
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      height: 56px;
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    /* 初期ドラッグ＆ドロップ画面 */
+    #drop-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .drop-zone {
+      width: 100%;
+      max-width: 520px;
+      height: 320px;
+      border: 2px dashed var(--border-color);
+      border-radius: 16px;
+      background-color: rgba(30, 41, 59, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background-color: rgba(59, 130, 246, 0.1);
+    }
+
+    .drop-zone p {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .drop-zone span {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+    }
+
+    /* 編集画面レイアウト */
+    #editor-screen {
+      display: none;
+      flex: 1;
+      height: calc(100vh - 56px);
+    }
+
+    .canvas-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-image: 
+        linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+        linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+        linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+      position: relative;
+      padding: 24px;
+    }
+
+    canvas {
+      max-width: 100%;
+      max-height: 75vh;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      cursor: grab;
+    }
+
+    canvas:active {
+      cursor: grabbing;
+    }
+
+    .canvas-hint {
+      margin-top: 12px;
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      background: rgba(15, 23, 42, 0.8);
+      padding: 6px 14px;
+      border-radius: 999px;
+    }
+
+    /* 右側コントロールパネル */
+    .sidebar {
+      width: 380px;
+      background-color: var(--panel-bg);
+      border-left: 1px solid var(--border-color);
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .control-group {
+      background-color: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .control-group h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-sub);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 6px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.85rem;
+    }
+
+    .row label {
+      color: var(--text-main);
+      white-space: nowrap;
+    }
+
+    select, input[type="number"], input[type="text"] {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+    }
+
+    .color-picker-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input[type="color"] {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: none;
+      cursor: pointer;
+    }
+
+    .hex-input {
+      width: 85px;
+      font-family: monospace;
+    }
+
+    /* 直感的なはみ出し角度ダイヤル */
+    .angle-dial-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .angle-dial {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background-color: var(--panel-bg);
+      border: 2px solid var(--accent);
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .angle-dial::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      background-color: var(--text-sub);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .angle-knob {
+      width: 14px;
+      height: 14px;
+      background-color: #ef4444;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .btn {
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+
+    .btn:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: #334155;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>ICON MAKER STUDIO</h1>
+    <button id="reset-btn" class="btn btn-secondary hidden" style="padding: 6px 12px; font-size: 0.8rem;">別の画像を読み込む</button>
+  </header>
+
+  <!-- 1. ドラッグ＆ドロップ画面 -->
+  <div id="drop-screen">
+    <div class="drop-zone" id="drop-zone">
+      <p>PNG画像をここにドラッグ＆ドロップ</p>
+      <span>またはクリックしてファイルを選択（背景透過PNG推奨）</span>
+      <input type="file" id="file-input" accept="image/png, image/jpeg, image/webp" class="hidden" />
+    </div>
+  </div>
+
+  <!-- 2. 編集画面 -->
+  <div id="editor-screen">
+    <div class="canvas-area">
+      <canvas id="preview-canvas" width="800" height="800"></canvas>
+      <div class="canvas-hint">キャンバス上をドラッグで位置移動 ／ ホイールで拡大縮小</div>
+    </div>
+
+    <div class="sidebar">
+      <!-- フレーム形状 -->
+      <div class="control-group">
+        <h2>1. フレーム形状・比率</h2>
+        <div class="row">
+          <label>基準の形</label>
+          <select id="shape-type">
+            <option value="circle">円 / 楕円</option>
+            <option value="rect">四角 / 長方形</option>
+            <option value="roundRect">角丸四角（カプセル可変）</option>
+            <option value="polygon">多角形（N角形）</option>
+            <option value="star">星形</option>
+            <option value="heart">ハート</option>
+          </select>
+        </div>
+
+        <div class="row hidden" id="polygon-sides-row">
+          <label>角の数 (<span id="sides-val">6</span>角形)</label>
+          <input type="range" id="polygon-sides" min="3" max="12" value="6" />
+        </div>
+
+        <div class="row hidden" id="corner-radius-row">
+          <label>角の丸み</label>
+          <input type="range" id="corner-radius" min="0" max="200" value="40" />
+        </div>
+
+        <div class="row">
+          <label>横幅比率</label>
+          <input type="range" id="aspect-x" min="0.5" max="1.3" step="0.02" value="1" />
+        </div>
+        <div class="row">
+          <label>縦幅比率</label>
+          <input type="range" id="aspect-y" min="0.5" max="1.3" step="0.02" value="1" />
+        </div>
+      </div>
+
+      <!-- はみ出し表現 -->
+      <div class="control-group">
+        <h2>2. はみ出し演出（飛び出し方向）</h2>
+        <div class="row">
+          <label>はみ出しを有効化</label>
+          <input type="checkbox" id="popout-enable" checked style="width: 18px; height: 18px;" />
+        </div>
+        <div class="angle-dial-container" id="popout-controls">
+          <div class="angle-dial" id="angle-dial" title="ドラッグして飛び出す方向を指定">
+            <div class="angle-knob" id="angle-knob"></div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+            <span style="font-size: 0.8rem; color: var(--text-sub);">赤い点を回して「枠の外に飛び出させたい方向」を指定します。</span>
+            <div class="row">
+              <label>許容範囲の広さ</label>
+              <input type="range" id="popout-spread" min="30" max="180" value="110" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- カラー・背景プリセット -->
+      <div class="control-group">
+        <h2>3. フレーム枠・背景デザイン</h2>
+        <div class="row">
+          <label>枠線の太さ</label>
+          <input type="range" id="border-width" min="0" max="40" value="16" />
+        </div>
+        <div class="row">
+          <label>枠線の色</label>
+          <div class="color-picker-wrap">
+            <input type="color" id="border-color" value="#0f172a" />
+            <input type="text" id="border-hex" class="hex-input" value="#0F172A" />
+          </div>
+        </div>
+        <div class="row">
+          <label>背景プリセット</label>
+          <select id="bg-preset">
+            <option value="solid">単色塗りつぶし</option>
+            <option value="transparent">透明（透過）</option>
+            <option value="gradient">グラデーション</option>
+            <option value="sunburst">集中線風エフェクト</option>
+          </select>
+        </div>
+        <div class="row" id="bg-color1-row">
+          <label>背景カラー1</label>
+          <div class="color-picker-wrap">
+            <input type="color" id="bg-color1" value="#ef4444" />
+            <input type="text" id="bg-hex1" class="hex-input" value="#EF4444" />
+          </div>
+        </div>
+        <div class="row hidden" id="bg-color2-row">
+          <label>背景カラー2</label>
+          <div class="color-picker-wrap">
+            <input type="color" id="bg-color2" value="#f59e0b" />
+            <input type="text" id="bg-hex2" class="hex-input" value="#F59E0B" />
+          </div>
+        </div>
+      </div>
+
+      <!-- キャラクター調整 -->
+      <div class="control-group">
+        <h2>4. キャラクター位置・サイズ</h2>
+        <div class="row">
+          <label>拡大・縮小</label>
+          <input type="range" id="img-scale" min="0.2" max="2.5" step="0.02" value="1" />
+        </div>
+        <div class="row">
+          <label>回転</label>
+          <input type="range" id="img-rotate" min="-180" max="180" value="0" />
+        </div>
+      </div>
+
+      <!-- 書き出し -->
+      <div class="control-group">
+        <h2>5. 書き出し（透過PNG）</h2>
+        <div class="row">
+          <label>出力サイズ (px)</label>
+          <input type="number" id="export-size" value="1000" min="128" max="4096" step="1" style="width: 100px;" />
+        </div>
+        <button id="export-btn" class="btn">PNG画像をダウンロード</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const dropScreen = document.getElementById('drop-screen');
+    const editorScreen = document.getElementById('editor-screen');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const resetBtn = document.getElementById('reset-btn');
+    const canvas = document.getElementById('preview-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let userImg = null;
+    let imgState = { x: 400, y: 420, scale: 1, rotate: 0 };
+    let isDraggingImg = false;
+    let dragStart = { x: 0, y: 0 };
+
+    // はみ出し角度（ラジアン、初期値は上方向 -PI/2）
+    let popoutAngle = -Math.PI / 2;
+    let isDraggingDial = false;
+
+    // UI要素の取得
+    const els = {
+      shapeType: document.getElementById('shape-type'),
+      polygonSidesRow: document.getElementById('polygon-sides-row'),
+      polygonSides: document.getElementById('polygon-sides'),
+      sidesVal: document.getElementById('sides-val'),
+      cornerRadiusRow: document.getElementById('corner-radius-row'),
+      cornerRadius: document.getElementById('corner-radius'),
+      aspectX: document.getElementById('aspect-x'),
+      aspectY: document.getElementById('aspect-y'),
+      popoutEnable: document.getElementById('popout-enable'),
+      popoutControls: document.getElementById('popout-controls'),
+      angleDial: document.getElementById('angle-dial'),
+      angleKnob: document.getElementById('angle-knob'),
+      popoutSpread: document.getElementById('popout-spread'),
+      borderWidth: document.getElementById('border-width'),
+      borderColor: document.getElementById('border-color'),
+      borderHex: document.getElementById('border-hex'),
+      bgPreset: document.getElementById('bg-preset'),
+      bgColor1Row: document.getElementById('bg-color1-row'),
+      bgColor1: document.getElementById('bg-color1'),
+      bgHex1: document.getElementById('bg-hex1'),
+      bgColor2Row: document.getElementById('bg-color2-row'),
+      bgColor2: document.getElementById('bg-color2'),
+      bgHex2: document.getElementById('bg-hex2'),
+      imgScale: document.getElementById('img-scale'),
+      imgRotate: document.getElementById('img-rotate'),
+      exportSize: document.getElementById('export-size'),
+      exportBtn: document.getElementById('export-btn')
+    };
+
+    // ファイル読み込み処理
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          userImg = img;
+          // 初期サイズをキャンバスにフィットさせる
+          const baseScale = 520 / Math.max(img.width, img.height);
+          imgState = { x: 400, y: 420, scale: baseScale, rotate: 0 };
+          els.imgScale.value = baseScale.toFixed(2);
+          els.imgRotate.value = 0;
+
+          dropScreen.classList.add('hidden');
+          editorScreen.style.display = 'flex';
+          resetBtn.classList.remove('hidden');
+          updateDialKnob();
+          render();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      editorScreen.style.display = 'none';
+      dropScreen.classList.remove('hidden');
+      resetBtn.classList.add('hidden');
+      fileInput.value = '';
+    });
+
+    // 形状に応じた追加UIの表示切替
+    els.shapeType.addEventListener('change', () => {
+      const val = els.shapeType.value;
+      els.polygonSidesRow.classList.toggle('hidden', val !== 'polygon');
+      els.cornerRadiusRow.classList.toggle('hidden', val !== 'roundRect');
+      render();
+    });
+
+    els.polygonSides.addEventListener('input', () => {
+      els.sidesVal.textContent = els.polygonSides.value;
+      render();
+    });
+
+    // 背景プリセット切替
+    els.bgPreset.addEventListener('change', () => {
+      const val = els.bgPreset.value;
+      els.bgColor1Row.classList.toggle('hidden', val === 'transparent');
+      els.bgColor2Row.classList.toggle('hidden', val !== 'gradient' && val !== 'sunburst');
+      render();
+    });
+
+    // カラーピッカーとHEX入力の同期
+    function syncColor(picker, hexInput) {
+      picker.addEventListener('input', () => {
+        hexInput.value = picker.value.toUpperCase();
+        render();
+      });
+      hexInput.addEventListener('input', () => {
+        let v = hexInput.value.trim();
+        if (!v.startsWith('#')) v = '#' + v;
+        if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
+          picker.value = v;
+          render();
+        }
+      });
+    }
+    syncColor(els.borderColor, els.borderHex);
+    syncColor(els.bgColor1, els.bgHex1);
+    syncColor(els.bgColor2, els.bgHex2);
+
+    // はみ出し角度ダイヤルのマウス操作
+    function updateDialFromEvent(e) {
+      const rect = els.angleDial.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      popoutAngle = Math.atan2(e.clientY - cy, e.clientX - cx);
+      updateDialKnob();
+      render();
+    }
+
+    function updateDialKnob() {
+      const r = 24;
+      const kx = 30 + Math.cos(popoutAngle) * r;
+      const ky = 30 + Math.sin(popoutAngle) * r;
+      els.angleKnob.style.left = `${kx}px`;
+      els.angleKnob.style.top = `${ky}px`;
+    }
+
+    els.angleDial.addEventListener('mousedown', (e) => {
+      isDraggingDial = true;
+      updateDialFromEvent(e);
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (isDraggingDial) updateDialFromEvent(e);
+    });
+    window.addEventListener('mouseup', () => {
+      isDraggingDial = false;
+    });
+
+    els.popoutEnable.addEventListener('change', () => {
+      els.popoutControls.style.opacity = els.popoutEnable.checked ? '1' : '0.4';
+      els.popoutControls.style.pointerEvents = els.popoutEnable.checked ? 'auto' : 'none';
+      render();
+    });
+
+    // キャンバス上の画像ドラッグ＆ホイール操作
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleRatio = canvas.width / rect.width;
+      isDraggingImg = true;
+      dragStart.x = (e.clientX - rect.left) * scaleRatio - imgState.x;
+      dragStart.y = (e.clientY - rect.top) * scaleRatio - imgState.y;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingImg) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleRatio = canvas.width / rect.width;
+      imgState.x = (e.clientX - rect.left) * scaleRatio - dragStart.x;
+      imgState.y = (e.clientY - rect.top) * scaleRatio - dragStart.y;
+      render();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDraggingImg = false;
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.04 : -0.04;
+      imgState.scale = Math.min(2.5, Math.max(0.2, imgState.scale + delta));
+      els.imgScale.value = imgState.scale.toFixed(2);
+      render();
+    }, { passive: false });
+
+    // スライダー連動
+    ['cornerRadius', 'aspectX', 'aspectY', 'popoutSpread', 'borderWidth'].forEach(key => {
+      els[key].addEventListener('input', render);
+    });
+    els.imgScale.addEventListener('input', () => {
+      imgState.scale = parseFloat(els.imgScale.value);
+      render();
+    });
+    els.imgRotate.addEventListener('input', () => {
+      imgState.rotate = parseFloat(els.imgRotate.value);
+      render();
+    });
+
+    // フレームのパスを生成する関数
+    function createFramePath(targetCtx, cx, cy, rx, ry) {
+      const shape = els.shapeType.value;
+      targetCtx.beginPath();
+
+      if (shape === 'circle') {
+        targetCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      } else if (shape === 'rect') {
+        targetCtx.rect(cx - rx, cy - ry, rx * 2, ry * 2);
+      } else if (shape === 'roundRect') {
+        const r = Math.min(parseFloat(els.cornerRadius.value), rx, ry);
+        targetCtx.roundRect(cx - rx, cy - ry, rx * 2, ry * 2, r);
+      } else if (shape === 'polygon') {
+        const sides = parseInt(els.polygonSides.value, 10);
+        const offsetAngle = -Math.PI / 2;
+        for (let i = 0; i < sides; i++) {
+          const a = offsetAngle + (i * 2 * Math.PI) / sides;
+          const px = cx + Math.cos(a) * rx;
+          const py = cy + Math.sin(a) * ry;
+          if (i === 0) targetCtx.moveTo(px, py);
+          else targetCtx.lineTo(px, py);
+        }
+        targetCtx.closePath();
+      } else if (shape === 'star') {
+        const spikes = 5;
+        const innerRatio = 0.48;
+        const offsetAngle = -Math.PI / 2;
+        for (let i = 0; i < spikes * 2; i++) {
+          const rMult = i % 2 === 0 ? 1 : innerRatio;
+          const a = offsetAngle + (i * Math.PI) / spikes;
+          const px = cx + Math.cos(a) * rx * rMult;
+          const py = cy + Math.sin(a) * ry * rMult;
+          if (i === 0) targetCtx.moveTo(px, py);
+          else targetCtx.lineTo(px, py);
+        }
+        targetCtx.closePath();
+      } else if (shape === 'heart') {
+        const topY = cy - ry * 0.4;
+        targetCtx.moveTo(cx, cy + ry);
+        targetCtx.bezierCurveTo(cx - rx * 1.4, cy + ry * 0.2, cx - rx * 0.8, cy - ry * 1.1, cx, topY);
+        targetCtx.bezierCurveTo(cx + rx * 0.8, cy - ry * 1.1, cx + rx * 1.4, cy + ry * 0.2, cx, cy + ry);
+        targetCtx.closePath();
+      }
+    }
+
+    // 描画メイン処理（プレビューと書き出し共通）
+    function drawScene(targetCtx, size) {
+      const scaleFactor = size / 800;
+      targetCtx.save();
+      targetCtx.clearRect(0, 0, size, size);
+      targetCtx.scale(scaleFactor, scaleFactor);
+
+      const cx = 400;
+      const cy = 400;
+      const baseR = 270;
+      const rx = baseR * parseFloat(els.aspectX.value);
+      const ry = baseR * parseFloat(els.aspectY.value);
+      const borderW = parseFloat(els.borderWidth.value);
+
+      // 1. フレーム内の背景描画
+      targetCtx.save();
+      createFramePath(targetCtx, cx, cy, rx, ry);
+      targetCtx.clip();
+
+      const bgType = els.bgPreset.value;
+      if (bgType === 'solid') {
+        targetCtx.fillStyle = els.bgColor1.value;
+        targetCtx.fillRect(0, 0, 800, 800);
+      } else if (bgType === 'gradient') {
+        const grad = targetCtx.createLinearGradient(cx - rx, cy - ry, cx + rx, cy + ry);
+        grad.addColorStop(0, els.bgColor1.value);
+        grad.addColorStop(1, els.bgColor2.value);
+        targetCtx.fillStyle = grad;
+        targetCtx.fillRect(0, 0, 800, 800);
+      } else if (bgType === 'sunburst') {
+        targetCtx.fillStyle = els.bgColor1.value;
+        targetCtx.fillRect(0, 0, 800, 800);
+        targetCtx.fillStyle = els.bgColor2.value;
+        const rays = 24;
+        for (let i = 0; i < rays; i += 2) {
+          targetCtx.beginPath();
+          targetCtx.moveTo(cx, cy);
+          targetCtx.arc(cx, cy, 500, (i * 2 * Math.PI) / rays, ((i + 1) * 2 * Math.PI) / rays);
+          targetCtx.closePath();
+          targetCtx.fill();
+        }
+      }
+
+      // 2. フレーム内に収まるキャラクター描画
+      if (userImg) {
+        drawCharacter(targetCtx);
+      }
+      targetCtx.restore();
+
+      // 3. フレーム枠線の描画
+      if (borderW > 0) {
+        targetCtx.save();
+        createFramePath(targetCtx, cx, cy, rx, ry);
+        targetCtx.lineWidth = borderW;
+        targetCtx.strokeStyle = els.borderColor.value;
+        targetCtx.stroke();
+        targetCtx.restore();
+      }
+
+      // 4. はみ出し演出（指定角度の扇形エリアのみ枠線の上に重ねて描画）
+      if (userImg && els.popoutEnable.checked) {
+        targetCtx.save();
+        const spreadRad = (parseFloat(els.popoutSpread.value) * Math.PI) / 180;
+        targetCtx.beginPath();
+        targetCtx.moveTo(cx, cy);
+        targetCtx.arc(cx, cy, 800, popoutAngle - spreadRad / 2, popoutAngle + spreadRad / 2);
+        targetCtx.closePath();
+        targetCtx.clip();
+
+        drawCharacter(targetCtx);
+        targetCtx.restore();
+      }
+
+      targetCtx.restore();
+    }
+
+    function drawCharacter(targetCtx) {
+      targetCtx.save();
+      targetCtx.translate(imgState.x, imgState.y);
+      targetCtx.rotate((imgState.rotate * Math.PI) / 180);
+      targetCtx.scale(imgState.scale, imgState.scale);
+      targetCtx.drawImage(userImg, -userImg.width / 2, -userImg.height / 2);
+      targetCtx.restore();
+    }
+
+    function render() {
+      drawScene(ctx, 800);
+    }
+
+    // 指定ピクセルサイズでのPNGダウンロード
+    els.exportBtn.addEventListener('click', () => {
+      if (!userImg) return;
+      const outSize = Math.min(4096, Math.max(128, parseInt(els.exportSize.value, 10) || 1000));
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = outSize;
+      exportCanvas.height = outSize;
+      const exportCtx = exportCanvas.getContext('2d');
+
+      drawScene(exportCtx, outSize);
+
+      const link = document.createElement('a');
+      link.download = `icon_${outSize}px.png`;
+      link.href = exportCanvas.toDataURL('image/png');
+      link.click();
+    });
+  </script>
+</body>
+</html>
