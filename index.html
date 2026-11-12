@@ -326,6 +326,7 @@
             <option value="polygon">多角形（N角形）</option>
             <option value="star">星形</option>
             <option value="heart">ハート</option>
+            <option value="sfHud">SF・サイバーHUD</option>
           </select>
         </div>
 
@@ -348,14 +349,14 @@
         <div class="row">
           <label>横幅比率</label>
           <div class="control-inputs">
-            <input type="range" id="aspect-x" min="0.5" max="1.5" step="0.02" value="1" />
+            <input type="range" id="aspect-x" min="0.5" max="1.4" step="0.02" value="1" />
             <input type="number" id="aspect-x-num" class="num-input-1to10" min="1" max="10" value="5" />
           </div>
         </div>
         <div class="row">
           <label>縦幅比率</label>
           <div class="control-inputs">
-            <input type="range" id="aspect-y" min="0.5" max="1.5" step="0.02" value="1" />
+            <input type="range" id="aspect-y" min="0.5" max="1.4" step="0.02" value="1" />
             <input type="number" id="aspect-y-num" class="num-input-1to10" min="1" max="10" value="5" />
           </div>
         </div>
@@ -389,15 +390,15 @@
         <div class="row">
           <label>枠線の太さ</label>
           <div class="control-inputs">
-            <input type="range" id="border-width" min="0" max="40" value="16" />
+            <input type="range" id="border-width" min="0" max="40" value="12" />
             <input type="number" id="border-width-num" class="num-input-1to10" min="1" max="10" value="4" />
           </div>
         </div>
         <div class="row">
           <label>枠線の色</label>
           <div class="color-picker-wrap">
-            <input type="color" id="border-color" value="#0f172a" />
-            <input type="text" id="border-hex" class="hex-input" value="#0F172A" />
+            <input type="color" id="border-color" value="#38bdf8" />
+            <input type="text" id="border-hex" class="hex-input" value="#38BDF8" />
           </div>
         </div>
         <div class="row">
@@ -412,15 +413,15 @@
         <div class="row" id="bg-color1-row">
           <label>背景カラー1</label>
           <div class="color-picker-wrap">
-            <input type="color" id="bg-color1" value="#ef4444" />
-            <input type="text" id="bg-hex1" class="hex-input" value="#EF4444" />
+            <input type="color" id="bg-color1" value="#0f172a" />
+            <input type="text" id="bg-hex1" class="hex-input" value="#0F172A" />
           </div>
         </div>
         <div class="row hidden" id="bg-color2-row">
           <label>背景カラー2</label>
           <div class="color-picker-wrap">
-            <input type="color" id="bg-color2" value="#f59e0b" />
-            <input type="text" id="bg-hex2" class="hex-input" value="#F59E0B" />
+            <input type="color" id="bg-color2" value="#1e3a8a" />
+            <input type="text" id="bg-hex2" class="hex-input" value="#1E3A8A" />
           </div>
         </div>
       </div>
@@ -546,8 +547,8 @@
       });
     }
 
-    bindSync(els.aspectX, els.aspectXNum, 0.5, 1.5, true);
-    bindSync(els.aspectY, els.aspectYNum, 0.5, 1.5, true);
+    bindSync(els.aspectX, els.aspectXNum, 0.5, 1.4, true);
+    bindSync(els.aspectY, els.aspectYNum, 0.5, 1.4, true);
     bindSync(els.polygonSides, els.polygonSidesNum, 3, 12, false);
     bindSync(els.cornerRadius, els.cornerRadiusNum, 0, 200, false);
     bindSync(els.popoutSpread, els.popoutSpreadNum, 30, 180, false);
@@ -698,7 +699,6 @@
       imgState.x = (e.clientX - rect.left) * scaleRatio - dragStart.x;
       imgState.y = (e.clientY - rect.top) * scaleRatio - dragStart.y;
       
-      // スライダー＆数値ボックスも同期更新
       els.imgPosX.value = Math.max(0, Math.min(800, imgState.x));
       const xNum = Math.round(1 + ((imgState.x - 0) / (800 - 0)) * 9);
       els.imgPosXNum.value = Math.max(1, Math.min(10, xNum));
@@ -724,6 +724,7 @@
       render();
     }, { passive: false });
 
+    // フレームのパスを生成する関数
     function createFramePath(targetCtx, cx, cy, rx, ry) {
       const shape = els.shapeType.value;
       targetCtx.beginPath();
@@ -765,7 +766,126 @@
         targetCtx.bezierCurveTo(cx - rx * 1.4, cy + ry * 0.2, cx - rx * 0.8, cy - ry * 1.1, cx, topY);
         targetCtx.bezierCurveTo(cx + rx * 0.8, cy - ry * 1.1, cx + rx * 1.4, cy + ry * 0.2, cx, cy + ry);
         targetCtx.closePath();
+      } else if (shape === 'sfHud') {
+        // サイバーHUD風の8角面取りシルエット
+        const cut = Math.min(rx, ry) * 0.24;
+        const left = cx - rx;
+        const right = cx + rx;
+        const top = cy - ry;
+        const bottom = cy + ry;
+
+        targetCtx.moveTo(left + cut * 1.3, top);
+        targetCtx.lineTo(right - cut * 1.6, top);
+        targetCtx.lineTo(right, top + cut * 1.6);
+        targetCtx.lineTo(right, bottom - cut * 0.8);
+        targetCtx.lineTo(right - cut * 0.8, bottom);
+        targetCtx.lineTo(left + cut * 0.8, bottom);
+        targetCtx.lineTo(left, bottom - cut * 0.8);
+        targetCtx.lineTo(left, top + cut * 1.3);
+        targetCtx.closePath();
       }
+    }
+
+    // SF・サイバーHUD専用の発光装飾パーツ描画
+    function drawSfHudOverlay(targetCtx, cx, cy, rx, ry, borderW, color) {
+      if (borderW <= 0) return;
+      targetCtx.save();
+
+      const cut = Math.min(rx, ry) * 0.24;
+      const left = cx - rx;
+      const right = cx + rx;
+      const top = cy - ry;
+      const bottom = cy + ry;
+      const baseLine = Math.max(2, borderW * 0.35);
+
+      // ネオン発光（グロー効果）
+      targetCtx.shadowColor = color;
+      targetCtx.shadowBlur = 18;
+      targetCtx.strokeStyle = color;
+      targetCtx.fillStyle = color;
+
+      // 1. 外側のメイン細枠
+      targetCtx.lineWidth = baseLine;
+      createFramePath(targetCtx, cx, cy, rx, ry);
+      targetCtx.stroke();
+
+      // 2. 左上の三角形アクセントブロック
+      targetCtx.beginPath();
+      targetCtx.moveTo(left - 6, top - 6);
+      targetCtx.lineTo(left + cut * 1.05, top - 6);
+      targetCtx.lineTo(left - 6, top + cut * 1.05);
+      targetCtx.closePath();
+      targetCtx.fill();
+
+      // 3. 右上の太いアーマーベゼル
+      const armorW = Math.max(8, borderW * 0.9);
+      targetCtx.beginPath();
+      targetCtx.moveTo(right - cut * 1.6, top - armorW * 0.5);
+      targetCtx.lineTo(right + armorW * 0.5, top + cut * 1.6);
+      targetCtx.lineTo(right + armorW * 0.5, bottom - cut * 0.8);
+      targetCtx.lineTo(right - cut * 0.8, bottom + armorW * 0.5);
+      targetCtx.lineTo(right - cut * 1.1, bottom);
+      targetCtx.lineTo(right - armorW * 0.3, bottom - cut * 0.8);
+      targetCtx.lineTo(right - armorW * 0.3, top + cut * 1.7);
+      targetCtx.lineTo(right - cut * 1.7, top + armorW * 0.3);
+      targetCtx.closePath();
+      targetCtx.fill();
+
+      // 4. 上部の斜線ゲージ（テクニカルバー）
+      const barCount = 6;
+      const barW = (rx * 0.45) / barCount;
+      const barH = Math.max(6, borderW * 0.65);
+      for (let i = 0; i < barCount; i++) {
+        const bx = left + cut * 1.5 + i * (barW + 6);
+        const by = top + 6;
+        targetCtx.globalAlpha = i < 4 ? 0.95 : 0.35;
+        targetCtx.beginPath();
+        targetCtx.moveTo(bx + 6, by);
+        targetCtx.lineTo(bx + barW + 6, by);
+        targetCtx.lineTo(bx + barW, by + barH);
+        targetCtx.lineTo(bx, by + barH);
+        targetCtx.closePath();
+        targetCtx.fill();
+      }
+      targetCtx.globalAlpha = 1.0;
+
+      // 5. 下部の斜線ゲージ
+      const bBarCount = 5;
+      const bBarW = (rx * 0.5) / bBarCount;
+      for (let i = 0; i < bBarCount; i++) {
+        const bx = cx - rx * 0.1 + i * (bBarW + 8);
+        const by = bottom - barH - 4;
+        targetCtx.globalAlpha = i < 3 ? 0.95 : 0.3;
+        targetCtx.beginPath();
+        targetCtx.moveTo(bx + 8, by);
+        targetCtx.lineTo(bx + bBarW + 8, by);
+        targetCtx.lineTo(bx + bBarW, by + barH);
+        targetCtx.lineTo(bx, by + barH);
+        targetCtx.closePath();
+        targetCtx.fill();
+      }
+      targetCtx.globalAlpha = 1.0;
+
+      // 6. 左側の縦サイドバー
+      const sideBarW = Math.max(6, borderW * 0.6);
+      targetCtx.beginPath();
+      targetCtx.moveTo(left - sideBarW * 0.5, top + ry * 0.45);
+      targetCtx.lineTo(left + sideBarW * 0.5, top + ry * 0.55);
+      targetCtx.lineTo(left + sideBarW * 0.5, bottom - ry * 0.45);
+      targetCtx.lineTo(left - sideBarW * 0.5, bottom - ry * 0.35);
+      targetCtx.closePath();
+      targetCtx.fill();
+
+      // 7. 左下のワイヤーフレーム三角アクセント
+      targetCtx.lineWidth = Math.max(1.5, baseLine * 0.7);
+      targetCtx.beginPath();
+      targetCtx.moveTo(left - 4, bottom - cut * 0.55);
+      targetCtx.lineTo(left + cut * 0.55, bottom + 4);
+      targetCtx.lineTo(left - 4, bottom + 4);
+      targetCtx.closePath();
+      targetCtx.stroke();
+
+      targetCtx.restore();
     }
 
     function drawScene(targetCtx, size, isExport = false) {
@@ -780,6 +900,7 @@
       const rx = baseR * parseFloat(els.aspectX.value);
       const ry = baseR * parseFloat(els.aspectY.value);
       const borderW = parseFloat(els.borderWidth.value);
+      const shape = els.shapeType.value;
 
       targetCtx.save();
       createFramePath(targetCtx, cx, cy, rx, ry);
@@ -814,7 +935,10 @@
       }
       targetCtx.restore();
 
-      if (borderW > 0) {
+      // フレーム枠線の描画（SF HUDの場合は専用発光デザインを描画）
+      if (shape === 'sfHud') {
+        drawSfHudOverlay(targetCtx, cx, cy, rx, ry, borderW, els.borderColor.value);
+      } else if (borderW > 0) {
         targetCtx.save();
         createFramePath(targetCtx, cx, cy, rx, ry);
         targetCtx.lineWidth = borderW;
@@ -823,6 +947,7 @@
         targetCtx.restore();
       }
 
+      // はみ出し演出
       if (userImg && els.popoutEnable.checked) {
         targetCtx.save();
         const spreadRad = (parseFloat(els.popoutSpread.value) * Math.PI) / 180;
@@ -835,7 +960,6 @@
         drawCharacter(targetCtx);
         targetCtx.restore();
 
-        // プレビュー画面でのみ「はみ出し方向」のガイド点線を描画
         if (!isExport) {
           targetCtx.save();
           targetCtx.beginPath();
